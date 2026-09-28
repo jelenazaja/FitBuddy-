@@ -1,0 +1,113 @@
+services:
+  workout-db:
+    image: mariadb:12.2-noble
+    restart: unless-stopped
+    environment:
+        - MARIADB_DATABASE=workout
+        - MARIADB_USER=workout-service-user
+        - MARIADB_PASSWORD=${MARIADB_PASSWORD}
+        - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./workout-db/data:/var/lib/mysql:Z
+    healthcheck:
+      test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  workout-service:
+    build:
+      context: ./workout-service
+    restart: unless-stopped
+    depends_on:
+        workout-db:
+            condition: service_healthy
+    environment:
+      - MARIADB_PASSWORD=${MARIADB_PASSWORD}
+      - MARIADB_HOST=workout-db
+    expose:
+     - "8080"
+     - "8081"
+    healthcheck:
+     test: "wget -q -S -O - http://localhost:8081/actuator/health 2>&1 | grep UP || exit 1"
+     start_period: 10s
+     interval: 10s
+     timeout: 5s
+     retries: 103
+
+  ai-coach-service:
+    build:
+      context: ./ai-coach-service
+    restart: unless-stopped
+    depends_on:
+      workout-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      WORKOUT_SERVICE_URL: http://workout-service:8080
+      REDIS_HOST: redis
+    expose:
+     - "8080"
+     - "8081"
+    healthcheck:
+     test: "wget -q -S -O - http://localhost:8081/actuator/health 2>&1 | grep UP || exit 1"
+     start_period: 10s
+     interval: 10s
+     timeout: 5s
+     retries: 10
+
+  api-gateway:
+    image: haproxy:3.3.8
+    restart: unless-stopped
+    depends_on:
+      workout-service:
+        condition: service_healthy
+      ai-coach-service:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./api-gateway/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      workout-service:
+        condition: service_healthy
+      ai-coach-service:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  grafana-data:
+

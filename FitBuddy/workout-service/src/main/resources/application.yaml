@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: workout-service
+  datasource:
+    url: jdbc:mariadb://${MARIADB_HOST}:3306/workout
+    username: workout-service-user
+    password: ${MARIADB_PASSWORD}
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+server:
+  port: 8080
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus

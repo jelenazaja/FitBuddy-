@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: ai-coach-service
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      base-url: "https://ibuni.openai.azure.com/openai/v1/"
+      chat:
+        model: "gpt-5.4-mini"
+        deployment-name: "gpt-5.4-mini"
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+  cache:
+    type: redis
+    cache-names:
+      - exercise-explanations
+    redis:
+      time-to-live: 1h
+      enable-statistics: true
+
+server:
+  port: 8080
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+
+resilience4j:
+  ratelimiter:
+    instances:
+      openai:
+        limit-for-period: 10
+        limit-refresh-period: 60s
+        timeout-duration: 0s

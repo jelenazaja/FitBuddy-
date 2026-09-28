@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+
+  - job_name: "workout-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets:
+          - "workout-service:8081"
+
+  - job_name: "ai-coach-service"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets:
+          - "ai-coach-service:8081"
